@@ -1,11 +1,11 @@
 <Solution>
   <Folder Name="/Solution Items/">
-    <File Path=".dockerignore.txt" />
+    <File Path=".dockerignore" />
     <File Path=".env" />
     <File Path=".env.example" />
-    <File Path=".gitignore.txt" />
+    <File Path=".gitignore" />
     <File Path="docker-compose.yml" />
-    <File Path="Dockerfile.txt" />
+    <File Path="Dockerfile" />
   </Folder>
   <Project Path="VetApp/VetApp.csproj" />
 </Solution>

@@ -1,6 +1,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using VetApp.Data;
+using VetApp.Repositories;
 
 namespace VetApp
 {
@@ -15,6 +16,8 @@ namespace VetApp
             builder.Services.AddDbContext<VetAppDbContext>(options =>
                     options.UseSqlServer(connString));
             // Add services to the container.
+
+            builder.Services.AddRepositories();
 
             builder.Services.AddControllers();
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
