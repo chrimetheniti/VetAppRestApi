@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <Folder Include="Controllers\" />
+    <Folder Include="NewFolder\" />
     <Folder Include="Services\" />
     <Folder Include="Security\" />
     <Folder Include="Resources\db\" />
