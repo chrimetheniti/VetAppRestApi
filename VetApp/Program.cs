@@ -1,7 +1,12 @@
 
 using Microsoft.EntityFrameworkCore;
+using VetApp.Configuration;
 using VetApp.Data;
 using VetApp.Repositories;
+using VetApp.Security;
+using VetApp.Services;
+
+
 
 namespace VetApp
 {
@@ -18,6 +23,14 @@ namespace VetApp
             // Add services to the container.
 
             builder.Services.AddRepositories();
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IVeterinarianService, VeterinarianService>();
+            builder.Services.AddScoped<IPatientService, PatientService>();
+            builder.Services.AddScoped<IOwnerService, OwnerService>();
+            builder.Services.AddScoped<IApplicationService, ApplicationService>();
+            builder.Services.AddSingleton<IEncryptionUtil, EncryptionUtil>();
+            builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MapperConfig>());
+            
 
             builder.Services.AddControllers();
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
