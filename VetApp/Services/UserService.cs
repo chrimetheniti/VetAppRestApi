@@ -103,29 +103,38 @@ using VetApp.Security;
                 return user;
             }
 
-            public string CreateUserToken(User user)
+        public string CreateUserToken(User user)
+        {
+            var secretKey = _configuration["Jwt:Secret"]!;
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+            var signingCredentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var claimsInfo = new List<Claim>
+    {
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new Claim(ClaimTypes.Name, user.Username),
+        new Claim(ClaimTypes.Email, user.Email),
+        new Claim(ClaimTypes.Role, user.Role.Name)
+    };
+
+            // Add capability claims from Role
+            if (user.Role?.Capabilities != null)
             {
-                var secretKey = _configuration["Jwt:Secret"]!;
-                var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
-                var signingCredentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-                var claimsInfo = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role.Name)
-            };
-
-                var jwtSecurityToken = new JwtSecurityToken(
-                    issuer: _configuration["Jwt:Issuer"],
-                    audience: _configuration["Jwt:Audience"],
-                    claims: claimsInfo,
-                    expires: DateTime.UtcNow.AddHours(3),
-                    signingCredentials: signingCredentials
-                );
-
-                return new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);
+                foreach (var capability in user.Role.Capabilities)
+                {
+                    claimsInfo.Add(new Claim("capability", capability.Name));
+                }
             }
+
+            var jwtSecurityToken = new JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
+                claims: claimsInfo,
+                expires: DateTime.UtcNow.AddHours(3),
+                signingCredentials: signingCredentials
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);
         }
+    }
     }
