@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using VetApp.Core;
 using VetApp.Core.Filters;
 using VetApp.DTO;
 using VetApp.Exceptions;
+using VetApp.Security;
 using VetApp.Services;
 
 namespace VetApp.Controllers
@@ -14,15 +14,19 @@ namespace VetApp.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IApplicationService _applicationService;
+        private readonly IClaimsService _claimsService;
 
-        public UsersController(IApplicationService applicationService)
+        public UsersController(
+            IApplicationService applicationService,
+            IClaimsService claimsService)
         {
             _applicationService = applicationService;
+            _claimsService = claimsService;
         }
 
-       
+        /// <summary>
         /// Gets a user by their ID.
-       
+        /// </summary>
         [HttpGet("{id:int}")]
         [Authorize]
         [ProducesResponseType(typeof(UserReadOnlyDTO), StatusCodes.Status200OK)]
@@ -36,9 +40,9 @@ namespace VetApp.Controllers
             return Ok(user);
         }
 
-     
+        /// <summary>
         /// Gets a user by their username.
-        
+        /// </summary>
         [HttpGet("by-username/{username}")]
         [Authorize]
         [ProducesResponseType(typeof(UserReadOnlyDTO), StatusCodes.Status200OK)]
@@ -51,9 +55,9 @@ namespace VetApp.Controllers
             return Ok(user);
         }
 
-        
+        /// <summary>
         /// Gets a paginated list of users with optional filtering.
-        
+        /// </summary>
         [HttpGet]
         [Authorize(Policy = "VIEW_USERS")]
         [ProducesResponseType(typeof(PaginatedResult<UserReadOnlyDTO>), StatusCodes.Status200OK)]
@@ -70,17 +74,19 @@ namespace VetApp.Controllers
             return Ok(result);
         }
 
+        // ===== Authorization helpers =====
+
         private void EnsureCanViewUser(int targetUserId)
         {
-            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var isOwnProfile = currentUserId == targetUserId;
+            var currentUserId = _claimsService.GetCurrentUserId();
+            var isOwnProfile = currentUserId.HasValue && currentUserId.Value == targetUserId;
 
             EnsureCanViewUserCore(isOwnProfile);
         }
 
         private void EnsureCanViewUser(string username)
         {
-            var currentUsername = User.FindFirst(ClaimTypes.Name)?.Value;
+            var currentUsername = _claimsService.GetCurrentUsername();
             var isOwnProfile = string.Equals(currentUsername, username, StringComparison.OrdinalIgnoreCase);
 
             EnsureCanViewUserCore(isOwnProfile);
@@ -88,7 +94,7 @@ namespace VetApp.Controllers
 
         private void EnsureCanViewUserCore(bool isOwnProfile)
         {
-            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
+            var currentUserRole = _claimsService.GetCurrentUserRole();
 
             // Self-view: Veterinarians και Owners μπορούν να δουν τον εαυτό τους
             if (isOwnProfile && (currentUserRole == "VETERINARIAN" || currentUserRole == "OWNER"))
@@ -97,9 +103,7 @@ namespace VetApp.Controllers
             }
 
             // Admin και Receptionist έχουν capability να δουν άλλους
-            var canViewOthers = User.HasClaim("capability", "VIEW_USERS");
-
-            if (canViewOthers)
+            if (_claimsService.HasCapability("VIEW_USERS"))
             {
                 return;
             }

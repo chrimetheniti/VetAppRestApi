@@ -13,10 +13,12 @@ namespace VetApp.Repositories
         }
 
         public async Task<User?> GetUserByUsernameAsync(string username) =>
-      await _context.Users
-      .Include(u => u.Role)
-          .ThenInclude(r => r.Capabilities)
-      .FirstOrDefaultAsync(u => u.Username == username || u.Email == username);
+            await _context.Users
+            .Include(u => u.Role)
+                .ThenInclude(r => r.Capabilities)
+            .Include(u => u.Veterinarian)
+            .Include(u => u.Owner)
+            .FirstOrDefaultAsync(u => u.Username == username || u.Email == username);
 
         public async Task<PaginatedResult<User>> GetUsersAsync(int pageNumber, int pageSize,
             List<Expression<Func<User, bool>>> predicates)

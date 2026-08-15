@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using VetApp.Core;
 using VetApp.Core.Filters;
 using VetApp.DTO;
 using VetApp.Exceptions;
+using VetApp.Security;
 using VetApp.Services;
 
 namespace VetApp.Controllers
@@ -14,15 +14,19 @@ namespace VetApp.Controllers
     public class OwnersController : ControllerBase
     {
         private readonly IApplicationService _applicationService;
+        private readonly IClaimsService _claimsService;
 
-        public OwnersController(IApplicationService applicationService)
+        public OwnersController(
+            IApplicationService applicationService,
+            IClaimsService claimsService)
         {
             _applicationService = applicationService;
+            _claimsService = claimsService;
         }
 
-        
+        /// <summary>
         /// Gets an owner by ID.
-        
+        /// </summary>
         [HttpGet("{id:int}")]
         [Authorize]
         [ProducesResponseType(typeof(OwnerReadOnlyDTO), StatusCodes.Status200OK)]
@@ -36,9 +40,9 @@ namespace VetApp.Controllers
             return Ok(owner);
         }
 
-        
+        /// <summary>
         /// Gets a paginated list of owners with optional filtering.
-        
+        /// </summary>
         [HttpGet]
         [Authorize(Policy = "VIEW_OWNERS")]
         [ProducesResponseType(typeof(PaginatedResult<UserReadOnlyDTO>), StatusCodes.Status200OK)]
@@ -55,9 +59,9 @@ namespace VetApp.Controllers
             return Ok(result);
         }
 
-        
+        /// <summary>
         /// Updates an existing owner.
-        
+        /// </summary>
         [HttpPut("{id:int}")]
         [Authorize]
         [ProducesResponseType(typeof(OwnerReadOnlyDTO), StatusCodes.Status200OK)]
@@ -81,9 +85,9 @@ namespace VetApp.Controllers
             return Ok(updated);
         }
 
-        
+        /// <summary>
         /// Deletes an owner by ID.
-       
+        /// </summary>
         [HttpDelete("{id:int}")]
         [Authorize(Policy = "DELETE_OWNER")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -100,15 +104,14 @@ namespace VetApp.Controllers
 
         private void EnsureCanViewOwner(int targetId)
         {
-            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
-
             // Anyone with VIEW_OWNERS capability can view (Admin, Receptionist)
-            if (User.HasClaim("capability", "VIEW_OWNERS"))
+            if (_claimsService.HasCapability("VIEW_OWNERS"))
             {
                 return;
             }
 
-            // Owner: can view own profile only
+            // Owners can view their own profile
+            var currentUserRole = _claimsService.GetCurrentUserRole();
             if (currentUserRole == "OWNER" && IsOwnProfile(targetId))
             {
                 return;
@@ -120,15 +123,14 @@ namespace VetApp.Controllers
 
         private void EnsureCanEditOwner(int targetId)
         {
-            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
-
-            // Admin can edit anyone
-            if (User.HasClaim("capability", "EDIT_OWNER"))
+            // Anyone with EDIT_OWNER capability can edit (Admin)
+            if (_claimsService.HasCapability("EDIT_OWNER"))
             {
                 return;
             }
 
-            // Owner: can edit own profile
+            // Owners can edit their own profile
+            var currentUserRole = _claimsService.GetCurrentUserRole();
             if (currentUserRole == "OWNER" && IsOwnProfile(targetId))
             {
                 return;
@@ -140,9 +142,8 @@ namespace VetApp.Controllers
 
         private bool IsOwnProfile(int targetOwnerId)
         {
-            // Note: targetOwnerId is the Owner.Id, not User.Id
-            // TODO: improve when we add ClaimsService helper
-            return false;
+            var currentOwnerId = _claimsService.GetCurrentOwnerId();
+            return currentOwnerId.HasValue && currentOwnerId.Value == targetOwnerId;
         }
     }
 }

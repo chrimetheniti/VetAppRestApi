@@ -1,8 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System.Linq.Expressions;
 using VetApp.Core;
 using VetApp.Data;
 using VetApp.Models;
+using System.Linq.Expressions;
 
 namespace VetApp.Repositories
 {
@@ -10,6 +10,14 @@ namespace VetApp.Repositories
     {
         public VeterinarianRepository(VetAppDbContext context) : base(context)
         {
+        }
+
+        public async Task<Veterinarian?> GetByIdWithUserAsync(int id)
+        {
+            return await _context.Veterinarians
+                .Include(v => v.User)
+                    .ThenInclude(u => u.Role)
+                .FirstOrDefaultAsync(v => v.Id == id);
         }
 
         public async Task<User?> GetUserVeterinarianByUsernameAsync(string username)

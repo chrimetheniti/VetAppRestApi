@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using VetApp.Core;
 using VetApp.Core.Filters;
 using VetApp.DTO;
 using VetApp.Exceptions;
+using VetApp.Security;
 using VetApp.Services;
 
 namespace VetApp.Controllers
@@ -14,15 +14,19 @@ namespace VetApp.Controllers
     public class VeterinariansController : ControllerBase
     {
         private readonly IApplicationService _applicationService;
+        private readonly IClaimsService _claimsService;
 
-        public VeterinariansController(IApplicationService applicationService)
+        public VeterinariansController(
+            IApplicationService applicationService,
+            IClaimsService claimsService)
         {
             _applicationService = applicationService;
+            _claimsService = claimsService;
         }
 
-       
+        /// <summary>
         /// Gets a veterinarian by ID.
-        
+        /// </summary>
         [HttpGet("{id:int}")]
         [Authorize]
         [ProducesResponseType(typeof(VeterinarianReadOnlyDTO), StatusCodes.Status200OK)]
@@ -36,9 +40,9 @@ namespace VetApp.Controllers
             return Ok(vet);
         }
 
-        
+        /// <summary>
         /// Gets a paginated list of veterinarians with optional filtering.
-        
+        /// </summary>
         [HttpGet]
         [Authorize(Policy = "VIEW_VETERINARIANS")]
         [ProducesResponseType(typeof(PaginatedResult<UserReadOnlyDTO>), StatusCodes.Status200OK)]
@@ -55,9 +59,9 @@ namespace VetApp.Controllers
             return Ok(result);
         }
 
-       
+        /// <summary>
         /// Updates an existing veterinarian.
-       
+        /// </summary>
         [HttpPut("{id:int}")]
         [Authorize]
         [ProducesResponseType(typeof(VeterinarianReadOnlyDTO), StatusCodes.Status200OK)]
@@ -81,9 +85,9 @@ namespace VetApp.Controllers
             return Ok(updated);
         }
 
-       
+        /// <summary>
         /// Deletes a veterinarian by ID.
-       
+        /// </summary>
         [HttpDelete("{id:int}")]
         [Authorize(Policy = "DELETE_VETERINARIAN")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -100,16 +104,15 @@ namespace VetApp.Controllers
 
         private void EnsureCanViewVeterinarian(int targetId)
         {
-            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
-
-            // Vets can view their own profile
-            if (currentUserRole == "VETERINARIAN" && IsOwnProfile(targetId))
+            // Anyone with VIEW_VETERINARIANS capability can view (Admin, Receptionist)
+            if (_claimsService.HasCapability("VIEW_VETERINARIANS"))
             {
                 return;
             }
 
-            // Anyone with VIEW_VETERINARIANS capability can view
-            if (User.HasClaim("capability", "VIEW_VETERINARIANS"))
+            // Vets can view their own profile
+            var currentUserRole = _claimsService.GetCurrentUserRole();
+            if (currentUserRole == "VETERINARIAN" && IsOwnProfile(targetId))
             {
                 return;
             }
@@ -120,16 +123,15 @@ namespace VetApp.Controllers
 
         private void EnsureCanEditVeterinarian(int targetId)
         {
-            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
-
-            // Vets can edit their own profile
-            if (currentUserRole == "VETERINARIAN" && IsOwnProfile(targetId))
+            // Anyone with EDIT_VETERINARIAN capability can edit (Admin)
+            if (_claimsService.HasCapability("EDIT_VETERINARIAN"))
             {
                 return;
             }
 
-            // Admin can edit anyone
-            if (User.HasClaim("capability", "EDIT_VETERINARIAN"))
+            // Vets can edit their own profile
+            var currentUserRole = _claimsService.GetCurrentUserRole();
+            if (currentUserRole == "VETERINARIAN" && IsOwnProfile(targetId))
             {
                 return;
             }
@@ -140,10 +142,8 @@ namespace VetApp.Controllers
 
         private bool IsOwnProfile(int targetVetId)
         {
-            // Note: targetVetId is the Veterinarian.Id, not User.Id
-            // For accurate own-profile check, we'd need to load the vet and compare UserId
-            // Simplified version: assume admin will use VIEW_VETERINARIANS for general access
-            return false; // TODO: improve when we add ClaimsService helper
+            var currentVetId = _claimsService.GetCurrentVeterinarianId();
+            return currentVetId.HasValue && currentVetId.Value == targetVetId;
         }
     }
 }

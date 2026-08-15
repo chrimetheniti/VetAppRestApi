@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using VetApp.Core;
 using VetApp.Core.Filters;
 using VetApp.DTO;
 using VetApp.Exceptions;
+using VetApp.Security;
 using VetApp.Services;
 
 namespace VetApp.Controllers
@@ -14,15 +14,19 @@ namespace VetApp.Controllers
     public class PatientsController : ControllerBase
     {
         private readonly IApplicationService _applicationService;
+        private readonly IClaimsService _claimsService;
 
-        public PatientsController(IApplicationService applicationService)
+        public PatientsController(
+            IApplicationService applicationService,
+            IClaimsService claimsService)
         {
             _applicationService = applicationService;
+            _claimsService = claimsService;
         }
 
-        
+        /// <summary>
         /// Gets a patient by ID.
-      
+        /// </summary>
         [HttpGet("{id:int}")]
         [Authorize]
         [ProducesResponseType(typeof(PatientReadOnlyDTO), StatusCodes.Status200OK)]
@@ -36,9 +40,9 @@ namespace VetApp.Controllers
             return Ok(patient);
         }
 
-       
+        /// <summary>
         /// Gets a paginated list of patients with optional filtering.
-       
+        /// </summary>
         [HttpGet]
         [Authorize(Policy = "VIEW_PATIENTS")]
         [ProducesResponseType(typeof(PaginatedResult<PatientReadOnlyDTO>), StatusCodes.Status200OK)]
@@ -55,9 +59,9 @@ namespace VetApp.Controllers
             return Ok(result);
         }
 
-        
+        /// <summary>
         /// Creates a new patient.
-       
+        /// </summary>
         [HttpPost]
         [Authorize(Policy = "INSERT_PATIENT")]
         [ProducesResponseType(typeof(PatientReadOnlyDTO), StatusCodes.Status201Created)]
@@ -75,9 +79,9 @@ namespace VetApp.Controllers
                 value: created);
         }
 
-       
+        /// <summary>
         /// Updates an existing patient.
-       
+        /// </summary>
         [HttpPut("{id:int}")]
         [Authorize(Policy = "EDIT_PATIENT")]
         [ProducesResponseType(typeof(PatientReadOnlyDTO), StatusCodes.Status200OK)]
@@ -99,9 +103,9 @@ namespace VetApp.Controllers
             return Ok(updated);
         }
 
-        
+        /// <summary>
         /// Deletes a patient by ID.
-       
+        /// </summary>
         [HttpDelete("{id:int}")]
         [Authorize(Policy = "DELETE_PATIENT")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -118,28 +122,32 @@ namespace VetApp.Controllers
 
         private void EnsureCanViewPatient(PatientReadOnlyDTO patient)
         {
-            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
-            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-
             // Admin / Receptionist: can view all patients
-            if (User.HasClaim("capability", "VIEW_PATIENTS"))
+            if (_claimsService.HasCapability("VIEW_PATIENTS"))
             {
                 return;
             }
 
+            var currentUserRole = _claimsService.GetCurrentUserRole();
+
             // Veterinarian: can view own patients only
             if (currentUserRole == "VETERINARIAN")
             {
-                // TODO: needs ClaimsService to map User.Id → Veterinarian.Id
-                // For now, allow vets to view any patient (will tighten later)
-                return;
+                var currentVetId = _claimsService.GetCurrentVeterinarianId();
+                if (currentVetId.HasValue && currentVetId.Value == patient.VeterinarianId)
+                {
+                    return;
+                }
             }
 
             // Owner: can view own pets only
             if (currentUserRole == "OWNER")
             {
-                // TODO: same as above for Owner
-                return;
+                var currentOwnerId = _claimsService.GetCurrentOwnerId();
+                if (currentOwnerId.HasValue && currentOwnerId.Value == patient.OwnerId)
+                {
+                    return;
+                }
             }
 
             throw new EntityForbiddenException("Patient",

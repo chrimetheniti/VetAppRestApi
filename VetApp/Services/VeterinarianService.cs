@@ -50,7 +50,7 @@ namespace VetApp.Services
 
         public async Task<VeterinarianReadOnlyDTO> GetByIdAsync(int id)
         {
-            var vet = await _unitOfWork.VeterinarianRepository.GetByIdAsync(id);
+            var vet = await _unitOfWork.VeterinarianRepository.GetByIdWithUserAsync(id);
             if (vet == null)
             {
                 throw new EntityNotFoundException("Veterinarian",
@@ -85,8 +85,10 @@ namespace VetApp.Services
             await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveAsync();
 
+            var updatedVet = await _unitOfWork.VeterinarianRepository.GetByIdWithUserAsync(vet.Id);
+
             _logger.LogInformation("Veterinarian {Id} updated successfully.", request.Id);
-            return _mapper.Map<VeterinarianReadOnlyDTO>(vet);
+            return _mapper.Map<VeterinarianReadOnlyDTO>(updatedVet);
         }
 
         public async Task<bool> DeleteAsync(int id)

@@ -12,96 +12,94 @@ using VetApp.Models;
 using VetApp.Repositories;
 using VetApp.Security;
 
-
-
-    namespace VetApp.Services
+namespace VetApp.Services
+{
+    public class UserService : IUserService
     {
-        public class UserService : IUserService
+        private readonly IEncryptionUtil _encryptionUtil;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
+        private readonly ILogger<UserService> _logger;
+        private readonly IConfiguration _configuration;
+
+        public UserService(IUnitOfWork unitOfWork, IMapper mapper,
+            ILogger<UserService> logger, IEncryptionUtil encryptionUtil, IConfiguration configuration)
         {
-            private readonly IEncryptionUtil _encryptionUtil;
-            private readonly IUnitOfWork _unitOfWork;
-            private readonly IMapper _mapper;
-            private readonly ILogger<UserService> _logger;
-            private readonly IConfiguration _configuration;
+            _encryptionUtil = encryptionUtil;
+            _unitOfWork = unitOfWork;
+            _mapper = mapper;
+            _logger = logger;
+            _configuration = configuration;
+        }
 
-            public UserService(IUnitOfWork unitOfWork, IMapper mapper,
-                ILogger<UserService> logger, IEncryptionUtil encryptionUtil, IConfiguration configuration)
+        public async Task<UserReadOnlyDTO> GetUserByUsernameAsync(string username)
+        {
+            var user = await _unitOfWork.UserRepository.GetUserByUsernameAsync(username);
+            if (user == null)
             {
-                _encryptionUtil = encryptionUtil;
-                _unitOfWork = unitOfWork;
-                _mapper = mapper;
-                _logger = logger;
-                _configuration = configuration;
+                throw new EntityNotFoundException("User", $"User with username: {username} not found");
             }
 
-            public async Task<UserReadOnlyDTO> GetUserByUsernameAsync(string username)
-            {
-                var user = await _unitOfWork.UserRepository.GetUserByUsernameAsync(username);
-                if (user == null)
-                {
-                    throw new EntityNotFoundException("User", $"User with username: {username} not found");
-                }
+            _logger.LogInformation("User found: {Username}", username);
+            return _mapper.Map<UserReadOnlyDTO>(user);
+        }
 
-                _logger.LogInformation("User found: {Username}", username);
-                return _mapper.Map<UserReadOnlyDTO>(user);
+        public async Task<UserReadOnlyDTO> GetUserByIdAsync(int id)
+        {
+            var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
+            if (user == null)
+            {
+                throw new EntityNotFoundException("User", $"User with id {id} not found");
             }
 
-            public async Task<UserReadOnlyDTO> GetUserByIdAsync(int id)
-            {
-                var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
-                if (user == null)
-                {
-                    throw new EntityNotFoundException("User", $"User with id {id} not found");
-                }
+            _logger.LogInformation("User with id {Id} found", id);
+            return _mapper.Map<UserReadOnlyDTO>(user);
+        }
 
-                _logger.LogInformation("User with id {Id} found", id);
-                return _mapper.Map<UserReadOnlyDTO>(user);
+        public async Task<PaginatedResult<UserReadOnlyDTO>> GetPaginatedUsersFilteredAsync(
+            int pageNumber, int pageSize, UserFiltersDTO userFiltersDTO)
+        {
+            List<Expression<Func<User, bool>>> predicates = [];
+
+            if (!string.IsNullOrEmpty(userFiltersDTO.Username))
+            {
+                predicates.Add(u => u.Username == userFiltersDTO.Username);
+            }
+            if (!string.IsNullOrEmpty(userFiltersDTO.Email))
+            {
+                predicates.Add(u => u.Email == userFiltersDTO.Email);
+            }
+            if (!string.IsNullOrEmpty(userFiltersDTO.UserRole))
+            {
+                predicates.Add(u => u.Role.Name == userFiltersDTO.UserRole);
             }
 
-            public async Task<PaginatedResult<UserReadOnlyDTO>> GetPaginatedUsersFilteredAsync(
-                int pageNumber, int pageSize, UserFiltersDTO userFiltersDTO)
+            var result = await _unitOfWork.UserRepository.GetUsersAsync(pageNumber, pageSize, predicates);
+
+            var dtoResult = new PaginatedResult<UserReadOnlyDTO>()
             {
-                List<Expression<Func<User, bool>>> predicates = [];
+                Data = _mapper.Map<List<UserReadOnlyDTO>>(result.Data),
+                TotalRecords = result.TotalRecords,
+                PageNumber = result.PageNumber,
+                PageSize = result.PageSize
+            };
 
-                if (!string.IsNullOrEmpty(userFiltersDTO.Username))
-                {
-                    predicates.Add(u => u.Username == userFiltersDTO.Username);
-                }
-                if (!string.IsNullOrEmpty(userFiltersDTO.Email))
-                {
-                    predicates.Add(u => u.Email == userFiltersDTO.Email);
-                }
-                if (!string.IsNullOrEmpty(userFiltersDTO.UserRole))
-                {
-                    predicates.Add(u => u.Role.Name == userFiltersDTO.UserRole);
-                }
+            _logger.LogInformation("Retrieved {Count} users", dtoResult.Data.Count);
+            return dtoResult;
+        }
 
-                var result = await _unitOfWork.UserRepository.GetUsersAsync(pageNumber, pageSize, predicates);
+        public async Task<User> VerifyAndGetUserAsync(UserLoginDTO credentials)
+        {
+            var user = await _unitOfWork.UserRepository.GetUserByUsernameAsync(credentials.Username);
 
-                var dtoResult = new PaginatedResult<UserReadOnlyDTO>()
-                {
-                    Data = _mapper.Map<List<UserReadOnlyDTO>>(result.Data),
-                    TotalRecords = result.TotalRecords,
-                    PageNumber = result.PageNumber,
-                    PageSize = result.PageSize
-                };
-
-                _logger.LogInformation("Retrieved {Count} users", dtoResult.Data.Count);
-                return dtoResult;
+            if (user == null || !_encryptionUtil.IsValidPassword(credentials.Password, user.Password))
+            {
+                throw new EntityNotAuthorizedException("User", "Bad Credentials");
             }
 
-            public async Task<User> VerifyAndGetUserAsync(UserLoginDTO credentials)
-            {
-                var user = await _unitOfWork.UserRepository.GetUserByUsernameAsync(credentials.Username);
-
-                if (user == null || !_encryptionUtil.IsValidPassword(credentials.Password, user.Password))
-                {
-                    throw new EntityNotAuthorizedException("User", "Bad Credentials");
-                }
-
-                _logger.LogInformation("User with username {Username} verified for login", credentials.Username);
-                return user;
-            }
+            _logger.LogInformation("User with username {Username} verified for login", credentials.Username);
+            return user;
+        }
 
         public string CreateUserToken(User user)
         {
@@ -110,12 +108,12 @@ using VetApp.Security;
             var signingCredentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
             var claimsInfo = new List<Claim>
-    {
-        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-        new Claim(ClaimTypes.Name, user.Username),
-        new Claim(ClaimTypes.Email, user.Email),
-        new Claim(ClaimTypes.Role, user.Role.Name)
-    };
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, user.Role.Name)
+            };
 
             // Add capability claims from Role
             if (user.Role?.Capabilities != null)
@@ -124,6 +122,18 @@ using VetApp.Security;
                 {
                     claimsInfo.Add(new Claim("capability", capability.Name));
                 }
+            }
+
+            // Add veterinarian id claim if user is a veterinarian
+            if (user.Veterinarian != null)
+            {
+                claimsInfo.Add(new Claim("veterinarianId", user.Veterinarian.Id.ToString()));
+            }
+
+            // Add owner id claim if user is an owner
+            if (user.Owner != null)
+            {
+                claimsInfo.Add(new Claim("ownerId", user.Owner.Id.ToString()));
             }
 
             var jwtSecurityToken = new JwtSecurityToken(
@@ -137,4 +147,4 @@ using VetApp.Security;
             return new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);
         }
     }
-    }
+}

@@ -36,6 +36,8 @@ namespace VetApp
             builder.Services.AddScoped<IOwnerService, OwnerService>();
             builder.Services.AddScoped<IApplicationService, ApplicationService>();
             builder.Services.AddSingleton<IEncryptionUtil, EncryptionUtil>();
+            builder.Services.AddHttpContextAccessor();
+            builder.Services.AddScoped<IClaimsService, ClaimsService>();
             builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MapperConfig>());
 
             // ============================================

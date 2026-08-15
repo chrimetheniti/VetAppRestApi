@@ -50,7 +50,7 @@ namespace VetApp.Services
 
         public async Task<OwnerReadOnlyDTO> GetByIdAsync(int id)
         {
-            var owner = await _unitOfWork.OwnerRepository.GetByIdAsync(id);
+            var owner = await _unitOfWork.OwnerRepository.GetByIdWithUserAsync(id);
             if (owner == null)
             {
                 throw new EntityNotFoundException("Owner", $"Owner with id {id} not found");
@@ -83,8 +83,10 @@ namespace VetApp.Services
             await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveAsync();
 
+            var updatedOwner = await _unitOfWork.OwnerRepository.GetByIdWithUserAsync(owner.Id);
+
             _logger.LogInformation("Owner {Id} updated successfully.", request.Id);
-            return _mapper.Map<OwnerReadOnlyDTO>(owner);
+            return _mapper.Map<OwnerReadOnlyDTO>(updatedOwner);
         }
 
         public async Task<bool> DeleteAsync(int id)
