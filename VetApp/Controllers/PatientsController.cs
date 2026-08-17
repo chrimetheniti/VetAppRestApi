@@ -41,10 +41,13 @@ namespace VetApp.Controllers
         }
 
         /// <summary>
-        /// Gets a paginated list of patients with optional filtering.
+        /// Gets a paginated list of patients.
+        /// ADMIN and RECEPTIONIST see all patients.
+        /// VETERINARIAN sees only their own patients (filtered by VeterinarianId).
+        /// OWNER sees only their own pets (filtered by OwnerId).
         /// </summary>
         [HttpGet]
-        [Authorize(Policy = "VIEW_PATIENTS")]
+        [Authorize]
         [ProducesResponseType(typeof(PaginatedResult<PatientReadOnlyDTO>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -53,8 +56,11 @@ namespace VetApp.Controllers
             [FromQuery] int pageSize = 10,
             [FromQuery] PatientFiltersDTO? filters = null)
         {
+            filters ??= new PatientFiltersDTO();
+            EnforceRoleBasedFilter(filters);
+
             var result = await _applicationService.PatientService
-                .GetPaginatedPatientsAsync(pageNumber, pageSize, filters ?? new PatientFiltersDTO());
+                .GetPaginatedPatientsAsync(pageNumber, pageSize, filters);
 
             return Ok(result);
         }
@@ -119,6 +125,40 @@ namespace VetApp.Controllers
         }
 
         // ===== Authorization helpers =====
+
+        /// <summary>
+        /// For VETERINARIAN and OWNER roles, forces the corresponding filter
+        /// so they can only ever see their own patients/pets — even if the
+        /// client tries to send different filter values.
+        /// ADMIN and RECEPTIONIST: no forced filter, they see all patients
+        /// (or apply the filters they explicitly requested).
+        /// </summary>
+        private void EnforceRoleBasedFilter(PatientFiltersDTO filters)
+        {
+            var currentUserRole = _claimsService.GetCurrentUserRole();
+
+            if (currentUserRole == "VETERINARIAN")
+            {
+                var vetId = _claimsService.GetCurrentVeterinarianId();
+                if (!vetId.HasValue)
+                {
+                    throw new EntityForbiddenException("Patient",
+                        "Veterinarian ID not found in token.");
+                }
+                filters.VeterinarianId = vetId.Value;
+            }
+            else if (currentUserRole == "OWNER")
+            {
+                var ownerId = _claimsService.GetCurrentOwnerId();
+                if (!ownerId.HasValue)
+                {
+                    throw new EntityForbiddenException("Patient",
+                        "Owner ID not found in token.");
+                }
+                filters.OwnerId = ownerId.Value;
+            }
+            // ADMIN and RECEPTIONIST: use filters as-is (or empty = all patients)
+        }
 
         private void EnsureCanViewPatient(PatientReadOnlyDTO patient)
         {
