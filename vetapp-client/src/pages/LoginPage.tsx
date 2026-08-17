@@ -6,7 +6,7 @@ import {type LoginFields, loginSchema} from "@/schemas/auth.ts";
 import {zodResolver} from "@hookform/resolvers/zod";
 import {useAuth} from "@/context/AuthProvider.tsx";
 import {toast} from "sonner";
-import {useNavigate} from "react-router";
+import {Link, useNavigate} from "react-router";
 
 export default function LoginPage() {
     const { loginUser } = useAuth();
@@ -51,6 +51,9 @@ export default function LoginPage() {
                 <Button type="submit" className="w-full">
                     {isSubmitting ? "Logging in..." : "Login"}
                 </Button>
+                <div className="text-sm text-center text-muted-foreground">
+                    Don't have an account? <Link to="/register" className="underline">Register as Owner</Link>
+                </div>
             </form>
         </>
     )
