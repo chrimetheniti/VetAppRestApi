@@ -10,7 +10,7 @@ namespace VetApp.Services
         Task<OwnerReadOnlyDTO> GetByIdAsync(int id);
         Task<OwnerReadOnlyDTO> UpdateAsync(OwnerUpdateDTO request);
         Task<bool> DeleteAsync(int id);
-        Task<PaginatedResult<UserReadOnlyDTO>> GetPaginatedOwnersAsync(int pageNumber, int pageSize,
+        Task<PaginatedResult<OwnerReadOnlyDTO>> GetPaginatedOwnersAsync(int pageNumber, int pageSize,
             OwnerFiltersDTO filters);
     }
 }

@@ -107,30 +107,30 @@ namespace VetApp.Services
             return true;
         }
 
-        public async Task<PaginatedResult<UserReadOnlyDTO>> GetPaginatedVeterinariansAsync(
+        public async Task<PaginatedResult<VeterinarianReadOnlyDTO>> GetPaginatedVeterinariansAsync(
             int pageNumber, int pageSize, VeterinarianFiltersDTO filters)
         {
-            List<Expression<Func<User, bool>>> predicates = [];
+            List<Expression<Func<Veterinarian, bool>>> predicates = [];
 
             if (!string.IsNullOrEmpty(filters.Username))
             {
-                predicates.Add(u => u.Username == filters.Username);
+                predicates.Add(v => v.User.Username == filters.Username);
             }
             if (!string.IsNullOrEmpty(filters.Email))
             {
-                predicates.Add(u => u.Email == filters.Email);
+                predicates.Add(v => v.User.Email == filters.Email);
             }
             if (!string.IsNullOrEmpty(filters.Clinic))
             {
-                predicates.Add(u => u.Veterinarian!.Clinic.Contains(filters.Clinic));
+                predicates.Add(v => v.Clinic.Contains(filters.Clinic));
             }
 
             var result = await _unitOfWork.VeterinarianRepository
                 .GetPaginatedVeterinariansAsync(pageNumber, pageSize, predicates);
 
-            var dtoResult = new PaginatedResult<UserReadOnlyDTO>()
+            var dtoResult = new PaginatedResult<VeterinarianReadOnlyDTO>()
             {
-                Data = _mapper.Map<List<UserReadOnlyDTO>>(result.Data),
+                Data = _mapper.Map<List<VeterinarianReadOnlyDTO>>(result.Data),
                 TotalRecords = result.TotalRecords,
                 PageNumber = result.PageNumber,
                 PageSize = result.PageSize

@@ -9,7 +9,7 @@ namespace VetApp.Repositories
         Task<Veterinarian?> GetByIdWithUserAsync(int id);
         Task<List<Patient>> GetVeterinarianPatientsAsync(int veterinarianId);
         Task<User?> GetUserVeterinarianByUsernameAsync(string username);
-        Task<PaginatedResult<User>> GetPaginatedVeterinariansAsync(int pageNumber, int pageSize,
-            List<Expression<Func<User, bool>>> predicates);
+        Task<PaginatedResult<Veterinarian>> GetPaginatedVeterinariansAsync(int pageNumber, int pageSize,
+            List<Expression<Func<Veterinarian, bool>>> predicates);
     }
 }

@@ -104,30 +104,30 @@ namespace VetApp.Services
             return true;
         }
 
-        public async Task<PaginatedResult<UserReadOnlyDTO>> GetPaginatedOwnersAsync(
+        public async Task<PaginatedResult<OwnerReadOnlyDTO>> GetPaginatedOwnersAsync(
             int pageNumber, int pageSize, OwnerFiltersDTO filters)
         {
-            List<Expression<Func<User, bool>>> predicates = [];
+            List<Expression<Func<Owner, bool>>> predicates = [];
 
             if (!string.IsNullOrEmpty(filters.Username))
             {
-                predicates.Add(u => u.Username == filters.Username);
+                predicates.Add(o => o.User.Username == filters.Username);
             }
             if (!string.IsNullOrEmpty(filters.Email))
             {
-                predicates.Add(u => u.Email == filters.Email);
+                predicates.Add(o => o.User.Email == filters.Email);
             }
             if (!string.IsNullOrEmpty(filters.PhoneNumber))
             {
-                predicates.Add(u => u.Owner!.PhoneNumber!.Contains(filters.PhoneNumber));
+                predicates.Add(o => o.PhoneNumber!.Contains(filters.PhoneNumber));
             }
 
             var result = await _unitOfWork.OwnerRepository
                 .GetPaginatedOwnersAsync(pageNumber, pageSize, predicates);
 
-            var dtoResult = new PaginatedResult<UserReadOnlyDTO>()
+            var dtoResult = new PaginatedResult<OwnerReadOnlyDTO>()
             {
-                Data = _mapper.Map<List<UserReadOnlyDTO>>(result.Data),
+                Data = _mapper.Map<List<OwnerReadOnlyDTO>>(result.Data),
                 TotalRecords = result.TotalRecords,
                 PageNumber = result.PageNumber,
                 PageSize = result.PageSize

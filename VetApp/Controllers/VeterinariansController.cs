@@ -45,10 +45,10 @@ namespace VetApp.Controllers
         /// </summary>
         [HttpGet]
         [Authorize(Policy = "VIEW_VETERINARIANS")]
-        [ProducesResponseType(typeof(PaginatedResult<UserReadOnlyDTO>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PaginatedResult<VeterinarianReadOnlyDTO>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<PaginatedResult<UserReadOnlyDTO>>> GetAll(
+        public async Task<ActionResult<PaginatedResult<VeterinarianReadOnlyDTO>>> GetAll(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] VeterinarianFiltersDTO? filters = null)

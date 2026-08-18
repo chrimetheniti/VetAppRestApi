@@ -30,13 +30,12 @@ namespace VetApp.Repositories
             return userVeterinarian;
         }
 
-        public async Task<PaginatedResult<User>> GetPaginatedVeterinariansAsync(int pageNumber, int pageSize,
-            List<Expression<Func<User, bool>>> predicates)
+        public async Task<PaginatedResult<Veterinarian>> GetPaginatedVeterinariansAsync(int pageNumber, int pageSize,
+            List<Expression<Func<Veterinarian, bool>>> predicates)
         {
-            int totalRecords;
-            IQueryable<User> query = _context.Users
-                .Include(u => u.Veterinarian)
-                .Where(u => u.Veterinarian != null);
+            IQueryable<Veterinarian> query = _context.Veterinarians
+                .Include(v => v.User)
+                    .ThenInclude(u => u.Role);
 
             if (predicates != null && predicates.Count > 0)
             {
@@ -46,16 +45,16 @@ namespace VetApp.Repositories
                 }
             }
 
-            totalRecords = await query.CountAsync();
+            int totalRecords = await query.CountAsync();
             int skip = (pageNumber - 1) * pageSize;
 
             var data = await query
-                .OrderBy(u => u.Id)
+                .OrderBy(v => v.Id)
                 .Skip(skip)
                 .Take(pageSize)
                 .ToListAsync();
 
-            return new PaginatedResult<User>()
+            return new PaginatedResult<Veterinarian>()
             {
                 Data = data,
                 TotalRecords = totalRecords,

@@ -30,13 +30,12 @@ namespace VetApp.Repositories
             return userOwner;
         }
 
-        public async Task<PaginatedResult<User>> GetPaginatedOwnersAsync(int pageNumber, int pageSize,
-            List<Expression<Func<User, bool>>> predicates)
+        public async Task<PaginatedResult<Owner>> GetPaginatedOwnersAsync(int pageNumber, int pageSize,
+            List<Expression<Func<Owner, bool>>> predicates)
         {
-            int totalRecords;
-            IQueryable<User> query = _context.Users
-                .Include(u => u.Owner)
-                .Where(u => u.Owner != null);
+            IQueryable<Owner> query = _context.Owners
+                .Include(o => o.User)
+                    .ThenInclude(u => u.Role);
 
             if (predicates != null && predicates.Count > 0)
             {
@@ -46,16 +45,16 @@ namespace VetApp.Repositories
                 }
             }
 
-            totalRecords = await query.CountAsync();
+            int totalRecords = await query.CountAsync();
             int skip = (pageNumber - 1) * pageSize;
 
             var data = await query
-                .OrderBy(u => u.Id)
+                .OrderBy(o => o.Id)
                 .Skip(skip)
                 .Take(pageSize)
                 .ToListAsync();
 
-            return new PaginatedResult<User>()
+            return new PaginatedResult<Owner>()
             {
                 Data = data,
                 TotalRecords = totalRecords,

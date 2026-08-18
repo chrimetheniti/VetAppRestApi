@@ -32,7 +32,11 @@ namespace VetApp.Repositories
         public async Task<PaginatedResult<Patient>> GetPaginatedPatientsAsync(int pageNumber, int pageSize,
             List<Expression<Func<Patient, bool>>> predicates)
         {
-            IQueryable<Patient> query = _context.Patients;
+            IQueryable<Patient> query = _context.Patients
+                .Include(p => p.Veterinarian)
+                    .ThenInclude(v => v.User)
+                .Include(p => p.Owner)
+                    .ThenInclude(o => o.User);
 
             if (predicates != null && predicates.Count > 0)
             {
