@@ -15,9 +15,14 @@ import {Button} from "@/components/ui/button.tsx";
 import {Pencil, Trash2} from "lucide-react";
 import {useNavigate} from "react-router";
 import {useAuth} from "@/context/AuthProvider.tsx";
+import Pagination from "@/components/Pagination.tsx";
+
+const PAGE_SIZE = 10;
 
 const PatientsListPage = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const {user} = useAuth();
@@ -26,23 +31,52 @@ const PatientsListPage = () => {
   // (matches backend policies INSERT_PATIENT, EDIT_PATIENT, DELETE_PATIENT).
   const canManage = user?.role === "ADMIN" || user?.role === "RECEPTIONIST";
 
+  const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
+
+  // Fetch the current page whenever pageNumber changes.
+  // The `canceled` flag avoids setting state on an unmounted component
+  // (or when pageNumber changes again before the previous request resolves).
+  useEffect(() => {
+    let canceled = false;
+
+    getPatients(pageNumber, PAGE_SIZE)
+        .then((result) => {
+          if (canceled) return;
+          setPatients(result.data);
+          setTotalRecords(result.totalRecords);
+        })
+        .catch(() => {
+          if (!canceled) toast.error("Failed to load patients");
+        })
+        .finally(() => {
+          if (!canceled) setLoading(false);
+        });
+
+    return () => {
+      canceled = true;
+    };
+  }, [pageNumber]);
+
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this patient?")) return;
     try {
       await deletePatient(id);
-      setPatients((prev) => prev.filter((p) => p.id !== id));
       toast.success("Patient has been deleted");
+
+      // If we just deleted the last item on this page (and we're not on page 1),
+      // move back one page — the useEffect will refetch automatically.
+      if (patients.length === 1 && pageNumber > 1) {
+        setPageNumber(pageNumber - 1);
+      } else {
+        // Otherwise refetch the current page inline.
+        const result = await getPatients(pageNumber, PAGE_SIZE);
+        setPatients(result.data);
+        setTotalRecords(result.totalRecords);
+      }
     } catch {
       toast.error("Error deleting patient");
     }
   };
-
-  useEffect(() => {
-    getPatients()
-        .then((result) => setPatients(result.data))
-        .catch(() => toast.error("Failed to load patients"))
-        .finally(() => setLoading(false));
-  }, []);
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
 
@@ -109,6 +143,12 @@ const PatientsListPage = () => {
               )}
             </TableBody>
           </Table>
+
+          <Pagination
+              pageNumber={pageNumber}
+              totalPages={totalPages}
+              onPageChange={setPageNumber}
+          />
         </div>
       </>
   );
