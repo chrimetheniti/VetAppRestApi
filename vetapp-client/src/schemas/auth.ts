@@ -18,8 +18,7 @@ export const ownerSignupSchema = z.object({
   username: z.string()
       .min(2, {error: "Username must be between 2 and 50 characters"})
       .max(50, {error: "Username must be between 2 and 50 characters"}),
-  email: z.string()
-      .email({error: "Invalid email address"})
+  email: z.email({error: "Invalid email address"})
       .max(100, {error: "Email must not exceed 100 characters"}),
   password: z.string().regex(
       /(?=.*?[A-Z])(?=.*?[a-z])(?=.*?\d)(?=.*?\W)^.{8,}$/,

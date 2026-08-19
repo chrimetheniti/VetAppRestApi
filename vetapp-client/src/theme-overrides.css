@@ -1,0 +1,17 @@
+/* VetApp theme — override shadcn --primary to deep teal (#0F766E, Tailwind teal-700).
+   This makes all default Button variants, focus rings, and primary UI accents
+   render in teal automatically across the entire app — no per-page changes needed.
+
+   Applied AFTER shadcn base tokens (import at end of index.css). */
+
+:root {
+  --primary: #0F766E;              /* Tailwind teal-700 */
+  --primary-foreground: #FFFFFF;   /* white text on teal */
+  --ring: #0F766E;                 /* teal focus ring */
+}
+
+.dark {
+  --primary: #0F766E;
+  --primary-foreground: #FFFFFF;
+  --ring: #0F766E;
+}

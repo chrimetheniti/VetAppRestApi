@@ -1,4 +1,10 @@
+// The fast-refresh warning fires because this file exports both a component
+// (AuthProvider) and a hook (useAuth). Co-locating them is a standard React
+// context pattern; suppressing this rule keeps our imports simple across the app.
+/* eslint-disable react-refresh/only-export-components */
+
 import type {LoginFields, LoginResponse} from "@/schemas/auth.ts";
+import type {ReactNode} from "react";
 import {createContext, useContext, useState} from "react";
 import {jwtDecode} from "jwt-decode";
 import {deleteCookie, getCookie, setCookie} from "@/utils/cookies.ts";
@@ -63,13 +69,13 @@ function readUserFromToken(token: string | null): UserInfo | null {
   }
 }
 
-export const AuthProvider = ({children}: {children: React.ReactNode}) => {
+export const AuthProvider = ({children}: {children: ReactNode}) => {
   const cookieAccessToken = getCookie("access_token")
   const [accessToken, setAccessToken] = useState<string | null>(
-    () => cookieAccessToken ?? null
+      () => cookieAccessToken ?? null
   );
   const [user, setUser] = useState<UserInfo | null>(
-    readUserFromToken(cookieAccessToken ?? null)
+      readUserFromToken(cookieAccessToken ?? null)
   );
 
   const loginUser = async (fields: LoginFields) => {
@@ -91,16 +97,16 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
   }
 
   return (
-    <AuthContext.Provider
-      value={{
-        isAuthenticated: !!accessToken,
-        accessToken,
-        user,
-        loginUser,
-        logoutUser,
-      }}>
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider
+          value={{
+            isAuthenticated: !!accessToken,
+            accessToken,
+            user,
+            loginUser,
+            logoutUser,
+          }}>
+        {children}
+      </AuthContext.Provider>
   )
 }
 
