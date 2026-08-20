@@ -19,13 +19,17 @@ namespace VetApp.Controllers
             _configuration = configuration;
         }
 
-       
+
         /// Registers a new veterinarian account.
-       
+        /// Only Admin and Receptionist can create vet accounts — this is staff onboarding,
+        /// not public self-signup (unlike owner registration below).
+
         [HttpPost("register/veterinarian")]
-        [AllowAnonymous]
+        [Authorize(Roles = "ADMIN,RECEPTIONIST")]
         [ProducesResponseType(typeof(UserReadOnlyDTO), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<ActionResult<UserReadOnlyDTO>> RegisterVeterinarian(
             [FromBody] VeterinarianSignupDTO veterinarianSignupDTO)
@@ -39,9 +43,11 @@ namespace VetApp.Controllers
                 value: createdUser);
         }
 
-       
+
         /// Registers a new owner account.
-       
+        /// Public endpoint — anyone can sign up as an owner (customer self-service).
+        /// Admin/Receptionist also use this endpoint via the admin UI.
+
         [HttpPost("register/owner")]
         [AllowAnonymous]
         [ProducesResponseType(typeof(UserReadOnlyDTO), StatusCodes.Status201Created)]
@@ -59,9 +65,9 @@ namespace VetApp.Controllers
                 value: createdUser);
         }
 
-       
+
         /// Authenticates a user and returns a JWT token.
-       
+
         [HttpPost("login")]
         [AllowAnonymous]
         [ProducesResponseType(typeof(JwtTokenDTO), StatusCodes.Status200OK)]
