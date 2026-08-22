@@ -19,12 +19,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.tsx";
+import {useAuth} from "@/context/AuthProvider.tsx";
+
+// Dropdowns need the FULL list, not the paginated 10 per page.
+// A vet clinic is unlikely to have thousands of vets/owners.
+const DROPDOWN_PAGE_SIZE = 1000;
 
 const PatientPage = () => {
   const {patientId} = useParams();
   const id = Number(patientId);
   const isEdit = !!patientId;
   const navigate = useNavigate();
+  const {user} = useAuth();
+
+  // Owners can edit their own pets' basic details, but the backend
+  // ignores any vet/owner reassignment they might send — and the
+  // getVeterinarians/getOwners endpoints reject their role (403).
+  // So we hide those two dropdowns entirely for owners.
+  const isOwner = user?.role === "OWNER";
 
   const [vets, setVets] = useState<Veterinarian[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
@@ -50,34 +62,38 @@ const PatientPage = () => {
   });
 
   // Load dropdown options (vets + owners) once on mount.
+  // Skipped for owners since (a) they can't access those endpoints and
+  // (b) their form doesn't show those dropdowns.
   useEffect(() => {
-    getVeterinarians()
-      .then((result) => setVets(result.data))
-      .catch(() => toast.error("Failed to load veterinarians"));
+    if (isOwner) return;
 
-    getOwners()
-      .then((result) => setOwners(result.data))
-      .catch(() => toast.error("Failed to load owners"));
-  }, []);
+    getVeterinarians(1, DROPDOWN_PAGE_SIZE)
+        .then((result) => setVets(result.data))
+        .catch(() => toast.error("Failed to load veterinarians"));
+
+    getOwners(1, DROPDOWN_PAGE_SIZE)
+        .then((result) => setOwners(result.data))
+        .catch(() => toast.error("Failed to load owners"));
+  }, [isOwner]);
 
   // On edit: fetch the patient and populate the form.
   useEffect(() => {
     if (isEdit && patientId) {
       getPatient(id)
-        .then((data) => {
-          const values: PatientFormFields = {
-            name: data.name ?? "",
-            chipNumber: data.chipNumber ?? "",
-            species: data.species ?? "",
-            breed: data.breed ?? "",
-            // Backend returns "YYYY-MM-DDTHH:mm:ss"; input type=date wants "YYYY-MM-DD".
-            dateOfBirth: data.dateOfBirth ? data.dateOfBirth.split("T")[0] : "",
-            veterinarianId: data.veterinarianId.toString(),
-            ownerId: data.ownerId.toString(),
-          };
-          reset(values);
-        })
-        .catch(() => toast.error("Failed to load patient"));
+          .then((data) => {
+            const values: PatientFormFields = {
+              name: data.name ?? "",
+              chipNumber: data.chipNumber ?? "",
+              species: data.species ?? "",
+              breed: data.breed ?? "",
+              // Backend returns "YYYY-MM-DDTHH:mm:ss"; input type=date wants "YYYY-MM-DD".
+              dateOfBirth: data.dateOfBirth ? data.dateOfBirth.split("T")[0] : "",
+              veterinarianId: data.veterinarianId.toString(),
+              ownerId: data.ownerId.toString(),
+            };
+            reset(values);
+          })
+          .catch(() => toast.error("Failed to load patient"));
     }
   }, [isEdit, patientId, id, reset]);
 
@@ -98,105 +114,112 @@ const PatientPage = () => {
   };
 
   return (
-    <>
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="max-w-xl mx-auto p-8 border rounded-md space-y-4 bg-white"
-        autoComplete="off"
-      >
-        <h1 className="text-xl font-bold mb-4">
-          {isEdit ? "Edit Patient" : "New Patient"}
-        </h1>
+      <>
+        <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="max-w-xl mx-auto p-8 border rounded-md space-y-4 bg-white"
+            autoComplete="off"
+        >
+          <h1 className="text-xl font-bold mb-4">
+            {isEdit ? (isOwner ? "Edit My Pet" : "Edit Patient") : "New Patient"}
+          </h1>
 
-        <Field>
-          <FieldLabel htmlFor="name">Name</FieldLabel>
-          <Input id="name" {...register("name")}/>
-          {errors.name && (
-            <div className="text-destructive text-sm">{errors.name.message}</div>
+          <Field>
+            <FieldLabel htmlFor="name">Name</FieldLabel>
+            <Input id="name" {...register("name")}/>
+            {errors.name && (
+                <div className="text-destructive text-sm">{errors.name.message}</div>
+            )}
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="species">Species</FieldLabel>
+            <Input id="species" {...register("species")}/>
+            {errors.species && (
+                <div className="text-destructive text-sm">{errors.species.message}</div>
+            )}
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="breed">Breed (optional)</FieldLabel>
+            <Input id="breed" {...register("breed")}/>
+            {errors.breed && (
+                <div className="text-destructive text-sm">{errors.breed.message}</div>
+            )}
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="chipNumber">Chip number (optional, 15 digits)</FieldLabel>
+            <Input id="chipNumber" {...register("chipNumber")}/>
+            {errors.chipNumber && (
+                <div className="text-destructive text-sm">{errors.chipNumber.message}</div>
+            )}
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="dateOfBirth">Date of birth (optional)</FieldLabel>
+            <Input id="dateOfBirth" type="date" {...register("dateOfBirth")}/>
+            {errors.dateOfBirth && (
+                <div className="text-destructive text-sm">{errors.dateOfBirth.message}</div>
+            )}
+          </Field>
+
+          {/* Vet + Owner dropdowns are staff-only.
+            For owners: the values stay in form state (from fetched patient),
+            and the backend forces them to existing values on save regardless. */}
+          {!isOwner && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="veterinarianId">Veterinarian</FieldLabel>
+                  <Select
+                      value={watch("veterinarianId")}
+                      onValueChange={(v) => setValue("veterinarianId", v)}
+                  >
+                    <SelectTrigger id="veterinarianId">
+                      <SelectValue placeholder="Select a veterinarian"/>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vets.map((vet) => (
+                          <SelectItem key={vet.id} value={vet.id.toString()}>
+                            {vet.firstname} {vet.lastname} — {vet.clinic}
+                          </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.veterinarianId && (
+                      <div className="text-destructive text-sm">{errors.veterinarianId.message}</div>
+                  )}
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="ownerId">Owner</FieldLabel>
+                  <Select
+                      value={watch("ownerId")}
+                      onValueChange={(v) => setValue("ownerId", v)}
+                  >
+                    <SelectTrigger id="ownerId">
+                      <SelectValue placeholder="Select an owner"/>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {owners.map((owner) => (
+                          <SelectItem key={owner.id} value={owner.id.toString()}>
+                            {owner.firstname} {owner.lastname}
+                          </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.ownerId && (
+                      <div className="text-destructive text-sm">{errors.ownerId.message}</div>
+                  )}
+                </Field>
+              </>
           )}
-        </Field>
 
-        <Field>
-          <FieldLabel htmlFor="species">Species</FieldLabel>
-          <Input id="species" {...register("species")}/>
-          {errors.species && (
-            <div className="text-destructive text-sm">{errors.species.message}</div>
-          )}
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="breed">Breed (optional)</FieldLabel>
-          <Input id="breed" {...register("breed")}/>
-          {errors.breed && (
-            <div className="text-destructive text-sm">{errors.breed.message}</div>
-          )}
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="chipNumber">Chip number (optional, 15 digits)</FieldLabel>
-          <Input id="chipNumber" {...register("chipNumber")}/>
-          {errors.chipNumber && (
-            <div className="text-destructive text-sm">{errors.chipNumber.message}</div>
-          )}
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="dateOfBirth">Date of birth (optional)</FieldLabel>
-          <Input id="dateOfBirth" type="date" {...register("dateOfBirth")}/>
-          {errors.dateOfBirth && (
-            <div className="text-destructive text-sm">{errors.dateOfBirth.message}</div>
-          )}
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="veterinarianId">Veterinarian</FieldLabel>
-          <Select
-            value={watch("veterinarianId")}
-            onValueChange={(v) => setValue("veterinarianId", v)}
-          >
-            <SelectTrigger id="veterinarianId">
-              <SelectValue placeholder="Select a veterinarian"/>
-            </SelectTrigger>
-            <SelectContent>
-              {vets.map((vet) => (
-                <SelectItem key={vet.id} value={vet.id.toString()}>
-                  {vet.firstname} {vet.lastname} — {vet.clinic}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.veterinarianId && (
-            <div className="text-destructive text-sm">{errors.veterinarianId.message}</div>
-          )}
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="ownerId">Owner</FieldLabel>
-          <Select
-            value={watch("ownerId")}
-            onValueChange={(v) => setValue("ownerId", v)}
-          >
-            <SelectTrigger id="ownerId">
-              <SelectValue placeholder="Select an owner"/>
-            </SelectTrigger>
-            <SelectContent>
-              {owners.map((owner) => (
-                <SelectItem key={owner.id} value={owner.id.toString()}>
-                  {owner.firstname} {owner.lastname}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.ownerId && (
-            <div className="text-destructive text-sm">{errors.ownerId.message}</div>
-          )}
-        </Field>
-
-        <Button type="submit" disabled={isSubmitting} className="w-full">
-          {isSubmitting ? "Submitting..." : isEdit ? "Update" : "Create"}
-        </Button>
-      </form>
-    </>
+          <Button type="submit" disabled={isSubmitting} className="w-full">
+            {isSubmitting ? "Submitting..." : isEdit ? "Update" : "Create"}
+          </Button>
+        </form>
+      </>
   );
 };
 

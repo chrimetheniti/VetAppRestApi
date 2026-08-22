@@ -87,9 +87,12 @@ namespace VetApp.Controllers
 
         /// <summary>
         /// Updates an existing patient.
+        /// ADMIN and RECEPTIONIST (with EDIT_PATIENT capability) can edit anything.
+        /// OWNER can edit their own pet's details but CANNOT reassign the vet
+        /// or the owner — those two IDs are forced back to their existing values.
         /// </summary>
         [HttpPut("{id:int}")]
-        [Authorize(Policy = "EDIT_PATIENT")]
+        [Authorize]
         [ProducesResponseType(typeof(PatientReadOnlyDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -103,6 +106,20 @@ namespace VetApp.Controllers
             {
                 throw new InvalidArgumentException("Patient",
                     "Id in URL does not match id in body.");
+            }
+
+            // Fetch the current record so we can (a) check ownership and
+            // (b) block reassignment attempts by owners.
+            var existing = await _applicationService.PatientService.GetByIdAsync(id);
+            EnsureCanEditPatient(existing);
+
+            // Owners cannot reassign their pet to a different vet or a
+            // different owner. Force the sensitive fields back to the
+            // current values regardless of what the client sent.
+            if (_claimsService.GetCurrentUserRole() == "OWNER")
+            {
+                request.VeterinarianId = existing.VeterinarianId;
+                request.OwnerId = existing.OwnerId;
             }
 
             var updated = await _applicationService.PatientService.UpdateAsync(request);
@@ -192,6 +209,29 @@ namespace VetApp.Controllers
 
             throw new EntityForbiddenException("Patient",
                 "You do not have permission to view this patient.");
+        }
+
+        private void EnsureCanEditPatient(PatientReadOnlyDTO patient)
+        {
+            // Admin / Receptionist: can edit all patients (via EDIT_PATIENT capability).
+            if (_claimsService.HasCapability("EDIT_PATIENT"))
+            {
+                return;
+            }
+
+            // Owner: can edit own pets only (but not reassign — that's handled in Update).
+            if (_claimsService.GetCurrentUserRole() == "OWNER")
+            {
+                var currentOwnerId = _claimsService.GetCurrentOwnerId();
+                if (currentOwnerId.HasValue && currentOwnerId.Value == patient.OwnerId)
+                {
+                    return;
+                }
+            }
+
+            // Vets do NOT get to edit patient master data — that's a clinic-admin task.
+            throw new EntityForbiddenException("Patient",
+                "You do not have permission to edit this patient.");
         }
     }
 }

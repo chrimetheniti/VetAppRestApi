@@ -9,7 +9,7 @@ const Header = () => {
     const canManageClinic = user?.role === "ADMIN" || user?.role === "RECEPTIONIST";
     // Vets see patients + their own profile.
     const isVet = user?.role === "VETERINARIAN";
-    // Owners see only their own profile.
+    // Owners see their own pets and their own profile.
     const isOwner = user?.role === "OWNER";
 
     // NavLink helper — teal underline when the route is active.
@@ -34,6 +34,9 @@ const Header = () => {
                     )}
                     {isAuthenticated && (canManageClinic || isVet) && (
                         <NavLink to="/patients" className={linkClass}>Patients</NavLink>
+                    )}
+                    {isAuthenticated && isOwner && (
+                        <NavLink to="/patients" className={linkClass}>My Pets</NavLink>
                     )}
                     {isAuthenticated && canManageClinic && (
                         <NavLink to="/owners" className={linkClass}>Owners</NavLink>

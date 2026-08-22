@@ -62,31 +62,27 @@ namespace VetApp.Services
 
         public async Task<OwnerReadOnlyDTO> UpdateAsync(OwnerUpdateDTO request)
         {
-            var owner = await _unitOfWork.OwnerRepository.GetByIdAsync(request.Id);
+            // GetByIdWithUserAsync loads Owner AND its User via Include —
+            // both entities are now tracked by the DbContext.
+            var owner = await _unitOfWork.OwnerRepository.GetByIdWithUserAsync(request.Id);
             if (owner == null)
             {
                 throw new EntityNotFoundException("Owner",
                     $"Owner with id {request.Id} not found");
             }
 
-            var user = await _unitOfWork.UserRepository.GetByIdAsync(owner.UserId);
-            if (user == null)
-            {
-                throw new EntityNotFoundException("User",
-                    $"User for owner id {request.Id} not found");
-            }
-
+            // Map onto the tracked entities. Change tracking will pick up
+            // exactly the modified properties — no need to call UpdateAsync
+            // (which re-attaches and marks EVERY property Modified, including
+            // the PK, and EF then throws because Owner's FK to User is an
+            // identifying relationship).
             _mapper.Map(request, owner);
-            _mapper.Map(request, user);
+            _mapper.Map(request, owner.User);
 
-            await _unitOfWork.OwnerRepository.UpdateAsync(owner);
-            await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveAsync();
 
-            var updatedOwner = await _unitOfWork.OwnerRepository.GetByIdWithUserAsync(owner.Id);
-
             _logger.LogInformation("Owner {Id} updated successfully.", request.Id);
-            return _mapper.Map<OwnerReadOnlyDTO>(updatedOwner);
+            return _mapper.Map<OwnerReadOnlyDTO>(owner);
         }
 
         public async Task<bool> DeleteAsync(int id)

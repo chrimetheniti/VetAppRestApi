@@ -27,7 +27,12 @@ namespace VetApp.Configuration
                 .ForMember(dest => dest.UserRole, opt => opt.MapFrom(src => src.User.Role.Name));
 
             CreateMap<VeterinarianUpdateDTO, Veterinarian>();
-            CreateMap<VeterinarianUpdateDTO, User>();
+
+            // The DTO's Id is the VETERINARIAN id — it must NOT overwrite the
+            // User's Id (which is the USER id, a different value). Without this
+            // ignore, EF sees the PK as modified and refuses to save.
+            CreateMap<VeterinarianUpdateDTO, User>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore());
 
             // ========== OWNER ==========
             CreateMap<OwnerSignupDTO, User>()
@@ -44,7 +49,11 @@ namespace VetApp.Configuration
                 .ForMember(dest => dest.UserRole, opt => opt.MapFrom(src => src.User.Role.Name));
 
             CreateMap<OwnerUpdateDTO, Owner>();
-            CreateMap<OwnerUpdateDTO, User>();
+
+            // Same story as Veterinarian above — DTO.Id is the OWNER id, must
+            // not be mapped onto User.Id.
+            CreateMap<OwnerUpdateDTO, User>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore());
 
             // ========== PATIENT ==========
             CreateMap<PatientInsertDTO, Patient>();

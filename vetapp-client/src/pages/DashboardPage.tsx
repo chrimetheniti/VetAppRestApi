@@ -10,7 +10,6 @@ import {PawPrint, Users, Stethoscope, Plus, UserCog, ArrowRight} from "lucide-re
 // ================= Card components =================
 
 // Primary action card — filled deep teal, white text, big plus icon in circle.
-// Used for the primary CTA of each role.
 const PrimaryActionCard = ({label, subtitle, onClick}: {
     label: string; subtitle: string; onClick: () => void;
 }) => (
@@ -31,7 +30,7 @@ const PrimaryActionCard = ({label, subtitle, onClick}: {
     </button>
 );
 
-// Secondary card — outlined, teal-tint icon circle, "N registered" style subtitle.
+// Secondary card — outlined, teal-tint icon circle.
 const OutlinedActionCard = ({label, subtitle, icon, onClick}: {
     label: string; subtitle: string; icon: ReactNode; onClick: () => void;
 }) => (
@@ -69,8 +68,9 @@ export default function DashboardPage() {
     useEffect(() => {
         let canceled = false;
 
-        // Everyone with VIEW_PATIENTS gets the patient count.
-        if (isAdminOrReceptionist || isVet) {
+        // Everyone who can see /patients gets the patient count.
+        // For owner the backend auto-filters to their pets only.
+        if (isAdminOrReceptionist || isVet || isOwner) {
             getPatients(1, 1)
                 .then((res) => !canceled && setPatientCount(res.totalRecords))
                 .catch(() => !canceled && setPatientCount(null));
@@ -89,13 +89,11 @@ export default function DashboardPage() {
         return () => {
             canceled = true;
         };
-    }, [isAdminOrReceptionist, isVet]);
+    }, [isAdminOrReceptionist, isVet, isOwner]);
 
-    // Format count like "24 registered", "5 in clinic", or "…" while loading.
     const countLabel = (n: number | null, singular: string, plural: string) =>
         n === null ? "…" : `${n} ${n === 1 ? singular : plural}`;
 
-    // Format today's date like "Wednesday, 19 August 2026" for the greeting subtitle.
     const today = new Date().toLocaleDateString("en-GB", {
         weekday: "long", day: "numeric", month: "long", year: "numeric",
     });
@@ -164,6 +162,12 @@ export default function DashboardPage() {
             {/* ===== OWNER ===== */}
             {isOwner && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <OutlinedActionCard
+                        label="My pets"
+                        subtitle={countLabel(patientCount, "registered", "registered")}
+                        icon={<PawPrint className="w-6 h-6"/>}
+                        onClick={() => navigate("/patients")}
+                    />
                     <OutlinedActionCard
                         label="My profile"
                         subtitle="View and update your details"

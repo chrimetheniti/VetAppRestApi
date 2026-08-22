@@ -63,32 +63,27 @@ namespace VetApp.Services
 
         public async Task<VeterinarianReadOnlyDTO> UpdateAsync(VeterinarianUpdateDTO request)
         {
-            var vet = await _unitOfWork.VeterinarianRepository.GetByIdAsync(request.Id);
+            // GetByIdWithUserAsync loads Vet AND its User via Include —
+            // both entities are now tracked by the DbContext.
+            var vet = await _unitOfWork.VeterinarianRepository.GetByIdWithUserAsync(request.Id);
             if (vet == null)
             {
                 throw new EntityNotFoundException("Veterinarian",
                     $"Veterinarian with id {request.Id} not found");
             }
 
-            var user = await _unitOfWork.UserRepository.GetByIdAsync(vet.UserId);
-            if (user == null)
-            {
-                throw new EntityNotFoundException("User",
-                    $"User for veterinarian id {request.Id} not found");
-            }
-
-            // Map updated fields onto existing entities
+            // Map onto the tracked entities. Change tracking will pick up
+            // exactly the modified properties — no need to call UpdateAsync
+            // (which re-attaches and marks EVERY property Modified, including
+            // the PK, and EF then throws because Vet's FK to User is an
+            // identifying relationship).
             _mapper.Map(request, vet);
-            _mapper.Map(request, user);
+            _mapper.Map(request, vet.User);
 
-            await _unitOfWork.VeterinarianRepository.UpdateAsync(vet);
-            await _unitOfWork.UserRepository.UpdateAsync(user);
             await _unitOfWork.SaveAsync();
 
-            var updatedVet = await _unitOfWork.VeterinarianRepository.GetByIdWithUserAsync(vet.Id);
-
             _logger.LogInformation("Veterinarian {Id} updated successfully.", request.Id);
-            return _mapper.Map<VeterinarianReadOnlyDTO>(updatedVet);
+            return _mapper.Map<VeterinarianReadOnlyDTO>(vet);
         }
 
         public async Task<bool> DeleteAsync(int id)
